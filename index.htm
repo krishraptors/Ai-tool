@@ -1,0 +1,1474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Drawing Studio</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --accent: #ec4899;
+            --bg-primary: #0f0f23;
+            --bg-secondary: #1a1a2e;
+            --bg-tertiary: #16213e;
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1aa;
+            --border: rgba(255, 255, 255, 0.1);
+            --glass: rgba(255, 255, 255, 0.05);
+            --shadow: rgba(0, 0, 0, 0.3);
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
+            overflow: hidden;
+            min-height: 100vh;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(236, 72, 153, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .toolbar {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            z-index: 1000;
+            max-width: 800px;
+            box-shadow: 0 8px 32px var(--shadow);
+        }
+
+        .tool-section {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 8px 12px;
+            background: var(--glass);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .tool-btn {
+            position: relative;
+            padding: 12px;
+            border: 2px solid transparent;
+            background: transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            color: var(--text-secondary);
+            min-width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .tool-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, var(--primary), var(--accent));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            border-radius: inherit;
+        }
+
+        .tool-btn:hover {
+            transform: translateY(-2px);
+            color: var(--text-primary);
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .tool-btn:hover::before {
+            opacity: 0.1;
+        }
+
+        .tool-btn.active {
+            background: linear-gradient(45deg, var(--primary), var(--accent));
+            color: var(--text-primary);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 25px rgba(99, 102, 241, 0.4);
+        }
+
+        .tool-btn.active::before {
+            opacity: 0;
+        }
+
+        .color-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .color-picker {
+            width: 44px;
+            height: 44px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            background: #000;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .color-picker::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, var(--primary), var(--accent));
+            border-radius: inherit;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: -1;
+        }
+
+        .color-picker:hover::before {
+            opacity: 1;
+        }
+
+        .color-presets {
+            display: flex;
+            gap: 6px;
+        }
+
+        .color-preset {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            border: 2px solid transparent;
+        }
+
+        .color-preset:hover {
+            transform: scale(1.1);
+            border-color: var(--primary);
+        }
+
+        .stroke-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .stroke-width {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stroke-slider {
+            width: 80px;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .stroke-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(45deg, var(--primary), var(--accent));
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            gap: 8px;
+            z-index: 1000;
+            box-shadow: 0 8px 32px var(--shadow);
+        }
+
+        .ai-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(26, 26, 46, 0.9);
+            backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            z-index: 1000;
+            box-shadow: 0 8px 32px var(--shadow);
+            min-width: 300px;
+        }
+
+        .ai-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .ai-indicator {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .smart-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .smart-btn {
+            padding: 8px 12px;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .smart-btn:hover {
+            background: var(--primary);
+            color: var(--text-primary);
+            transform: translateY(-1px);
+        }
+
+        .zoom-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            z-index: 1000;
+            box-shadow: 0 8px 32px var(--shadow);
+        }
+
+        .zoom-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid var(--border);
+            background: var(--glass);
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .zoom-btn:hover {
+            background: var(--primary);
+            color: var(--text-primary);
+            transform: translateY(-1px);
+        }
+
+        .zoom-level {
+            font-size: 13px;
+            font-weight: 500;
+            min-width: 50px;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+
+        #canvas {
+            cursor: crosshair;
+            background: transparent;
+            width: 100%;
+            height: 100%;
+        }
+
+        .snap-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--primary);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 2000;
+            pointer-events: none;
+        }
+
+        .snap-indicator.show {
+            opacity: 1;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 500;
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.2s ease;
+            pointer-events: none;
+            z-index: 1001;
+            border: 1px solid var(--border);
+        }
+
+        .tool-btn:hover .tooltip {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .status-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 8px 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            z-index: 1000;
+        }
+
+        /* Animations */
+        .tool-btn {
+            animation: slideIn 0.5s ease forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Modern scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <div class="tool-section">
+            <button class="tool-btn active" data-tool="select" title="Select (V)">
+                <span>↖</span>
+                <div class="tooltip">Select & Move</div>
+            </button>
+            <button class="tool-btn" data-tool="pen" title="Pen (P)">
+                <span>✎</span>
+                <div class="tooltip">Freehand Draw</div>
+            </button>
+        </div>
+
+        <div class="tool-section">
+            <button class="tool-btn" data-tool="rectangle" title="Rectangle (R)">
+                <span>▭</span>
+                <div class="tooltip">Rectangle</div>
+            </button>
+            <button class="tool-btn" data-tool="ellipse" title="Ellipse (O)">
+                <span>○</span>
+                <div class="tooltip">Circle/Ellipse</div>
+            </button>
+            <button class="tool-btn" data-tool="triangle" title="Triangle (T)">
+                <span>△</span>
+                <div class="tooltip">Triangle</div>
+            </button>
+            <button class="tool-btn" data-tool="diamond" title="Diamond (D)">
+                <span>◇</span>
+                <div class="tooltip">Diamond</div>
+            </button>
+            <button class="tool-btn" data-tool="hexagon" title="Hexagon (H)">
+                <span>⬡</span>
+                <div class="tooltip">Hexagon</div>
+            </button>
+            <button class="tool-btn" data-tool="star" title="Star (S)">
+                <span>★</span>
+                <div class="tooltip">Star</div>
+            </button>
+        </div>
+
+        <div class="tool-section">
+            <button class="tool-btn" data-tool="line" title="Line (L)">
+                <span>/</span>
+                <div class="tooltip">Straight Line</div>
+            </button>
+            <button class="tool-btn" data-tool="arrow" title="Arrow (A)">
+                <span>→</span>
+                <div class="tooltip">Arrow</div>
+            </button>
+            <button class="tool-btn" data-tool="curve" title="Curve (C)">
+                <span>∿</span>
+                <div class="tooltip">Curved Line</div>
+            </button>
+        </div>
+
+        <div class="color-section">
+            <input type="color" class="color-picker" id="colorPicker" value="#6366f1">
+            <div class="color-presets">
+                <div class="color-preset" style="background: #6366f1;" data-color="#6366f1"></div>
+                <div class="color-preset" style="background: #ec4899;" data-color="#ec4899"></div>
+                <div class="color-preset" style="background: #10b981;" data-color="#10b981"></div>
+                <div class="color-preset" style="background: #f59e0b;" data-color="#f59e0b"></div>
+                <div class="color-preset" style="background: #ef4444;" data-color="#ef4444"></div>
+                <div class="color-preset" style="background: #000000;" data-color="#000000"></div>
+                <div class="color-preset" style="background: #ffffff;" data-color="#ffffff"></div>
+            </div>
+        </div>
+
+        <div class="stroke-section">
+            <span style="font-size: 12px; color: var(--text-secondary);">Stroke:</span>
+            <input type="range" class="stroke-slider" id="strokeWidth" min="1" max="12" value="2">
+            <span id="strokeValue" style="font-size: 12px; min-width: 20px;">2</span>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="tool-btn" id="undoBtn" title="Undo (Ctrl+Z)">
+            <span>↶</span>
+            <div class="tooltip">Undo</div>
+        </button>
+        <button class="tool-btn" id="redoBtn" title="Redo (Ctrl+Y)">
+            <span>↷</span>
+            <div class="tooltip">Redo</div>
+        </button>
+        <button class="tool-btn" id="duplicateBtn" title="Duplicate (Ctrl+D)">
+            <span>⧉</span>
+            <div class="tooltip">Duplicate</div>
+        </button>
+        <button class="tool-btn" id="clearBtn" title="Clear All">
+            <span>🗑</span>
+            <div class="tooltip">Clear All</div>
+        </button>
+    </div>
+
+    <div class="ai-panel">
+        <div class="ai-header">
+            <div class="ai-indicator"></div>
+            <span style="font-weight: 600; font-size: 14px;">AI Assistant</span>
+        </div>
+        <div class="smart-features">
+            <button class="smart-btn" id="autoAlign">Auto Align</button>
+            <button class="smart-btn" id="smartSnap">Smart Snap</button>
+            <button class="smart-btn" id="beautify">Beautify</button>
+            <button class="smart-btn" id="autoColor">Auto Color</button>
+            <button class="smart-btn" id="suggest">Suggest Layout</button>
+        </div>
+    </div>
+
+    <div class="zoom-controls">
+        <button class="zoom-btn" id="zoomOut">−</button>
+        <div class="zoom-level" id="zoomLevel">100%</div>
+        <button class="zoom-btn" id="zoomIn">+</button>
+        <button class="tool-btn" id="resetZoom" title="Reset View">
+            <span>⌂</span>
+            <div class="tooltip">Reset View</div>
+        </button>
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="snap-indicator" id="snapIndicator"></div>
+    <div class="status-bar" id="statusBar">Ready to create amazing designs</div>
+
+    <script>
+        class AIDrawingTool {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.currentTool = 'select';
+                this.isDrawing = false;
+                this.startX = 0;
+                this.startY = 0;
+                this.currentPath = [];
+                this.elements = [];
+                this.history = [];
+                this.historyIndex = -1;
+                this.selectedElement = null;
+                this.isDragging = false;
+                this.dragStartX = 0;
+                this.dragStartY = 0;
+                this.zoom = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.snapEnabled = true;
+                this.snapThreshold = 10;
+                this.shiftPressed = false;
+                this.ctrlPressed = false;
+
+                this.setupCanvas();
+                this.setupEventListeners();
+                this.saveState();
+                this.startAIFeatures();
+            }
+
+            setupCanvas() {
+                this.canvas.width = window.innerWidth * window.devicePixelRatio;
+                this.canvas.height = window.innerHeight * window.devicePixelRatio;
+                this.canvas.style.width = window.innerWidth + 'px';
+                this.canvas.style.height = window.innerHeight + 'px';
+                this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+                this.ctx.lineCap = 'round';
+                this.ctx.lineJoin = 'round';
+                this.redraw();
+            }
+
+            setupEventListeners() {
+                // Tool selection
+                document.querySelectorAll('[data-tool]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
+                        e.target.closest('.tool-btn').classList.add('active');
+                        this.currentTool = e.target.closest('[data-tool]').dataset.tool;
+                        this.selectedElement = null;
+                        this.updateStatus(`Selected ${this.currentTool} tool`);
+                        this.redraw();
+                    });
+                });
+
+                // Color presets
+                document.querySelectorAll('.color-preset').forEach(preset => {
+                    preset.addEventListener('click', () => {
+                        const color = preset.dataset.color;
+                        document.getElementById('colorPicker').value = color;
+                        this.updateStatus(`Color changed to ${color}`);
+                    });
+                });
+
+                // Stroke width
+                const strokeWidth = document.getElementById('strokeWidth');
+                const strokeValue = document.getElementById('strokeValue');
+                strokeWidth.addEventListener('input', (e) => {
+                    strokeValue.textContent = e.target.value;
+                    this.updateStatus(`Stroke width: ${e.target.value}px`);
+                });
+
+                // Canvas events
+                this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
+                this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+                this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
+                this.canvas.addEventListener('wheel', this.handleWheel.bind(this));
+                
+                // Keyboard events
+                document.addEventListener('keydown', this.handleKeyDown.bind(this));
+                document.addEventListener('keyup', this.handleKeyUp.bind(this));
+
+                // Controls
+                document.getElementById('undoBtn').addEventListener('click', () => this.undo());
+                document.getElementById('redoBtn').addEventListener('click', () => this.redo());
+                document.getElementById('duplicateBtn').addEventListener('click', () => this.duplicate());
+                document.getElementById('clearBtn').addEventListener('click', () => this.clear());
+
+                // Zoom controls
+                document.getElementById('zoomIn').addEventListener('click', () => this.zoomIn());
+                document.getElementById('zoomOut').addEventListener('click', () => this.zoomOut());
+                document.getElementById('resetZoom').addEventListener('click', () => this.resetZoom());
+
+                // AI features
+                document.getElementById('autoAlign').addEventListener('click', () => this.autoAlign());
+                document.getElementById('smartSnap').addEventListener('click', () => this.toggleSmartSnap());
+                document.getElementById('beautify').addEventListener('click', () => this.beautifyElements());
+                document.getElementById('autoColor').addEventListener('click', () => this.autoColor());
+                document.getElementById('suggest').addEventListener('click', () => this.suggestLayout());
+
+                // Window resize
+                window.addEventListener('resize', () => this.setupCanvas());
+            }
+
+            getMousePos(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                return {
+                    x: (e.clientX - rect.left - this.panX) / this.zoom,
+                    y: (e.clientY - rect.top - this.panY) / this.zoom
+                };
+            }
+
+            handleMouseDown(e) {
+                const pos = this.getMousePos(e);
+                this.startX = pos.x;
+                this.startY = pos.y;
+                this.isDrawing = true;
+
+                if (this.currentTool === 'select') {
+                    this.selectedElement = this.getElementAt(pos.x, pos.y);
+                    if (this.selectedElement) {
+                        this.isDragging = true;
+                        this.dragStartX = pos.x - this.selectedElement.x;
+                        this.dragStartY = pos.y - this.selectedElement.y;
+                        this.updateStatus(`Selected ${this.selectedElement.type}`);
+                    }
+                } else if (this.currentTool === 'pen') {
+                    this.currentPath = [{ x: pos.x, y: pos.y }];
+                }
+            }
+
+            handleMouseMove(e) {
+                const pos = this.getMousePos(e);
+
+                if (!this.isDrawing) return;
+
+                if (this.currentTool === 'select' && this.isDragging && this.selectedElement) {
+                    let newX = pos.x - this.dragStartX;
+                    let newY = pos.y - this.dragStartY;
+
+                    // Smart snapping
+                    if (this.snapEnabled && !this.shiftPressed) {
+                        const snapped = this.getSnapPosition(newX, newY);
+                        if (snapped.snapped) {
+                            newX = snapped.x;
+                            newY = snapped.y;
+                            this.showSnapIndicator(snapped.type);
+                        } else {
+                            this.hideSnapIndicator();
+                        }
+                    }
+
+                    this.selectedElement.x = newX;
+                    this.selectedElement.y = newY;
+                    this.redraw();
+                } else if (this.currentTool === 'pen') {
+                    this.currentPath.push({ x: pos.x, y: pos.y });
+                    this.redraw();
+                    this.drawPath(this.currentPath);
+                } else {
+                    let endX = pos.x;
+                    let endY = pos.y;
+
+                    // Shift constraint for perfect shapes
+                    if (this.shiftPressed) {
+                        if (this.currentTool === 'rectangle' || this.currentTool === 'ellipse') {
+                            const size = Math.min(Math.abs(endX - this.startX), Math.abs(endY - this.startY));
+                            endX = this.startX + (endX > this.startX ? size : -size);
+                            endY = this.startY + (endY > this.startY ? size : -size);
+                        } else if (this.currentTool === 'line') {
+                            const angle = Math.atan2(endY - this.startY, endX - this.startX);
+                            const snappedAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+                            const distance = Math.sqrt((endX - this.startX) ** 2 + (endY - this.startY) ** 2);
+                            endX = this.startX + Math.cos(snappedAngle) * distance;
+                            endY = this.startY + Math.sin(snappedAngle) * distance;
+                        }
+                    }
+
+                    this.redraw();
+                    this.drawPreview(this.startX, this.startY, endX, endY);
+                }
+            }
+
+            handleMouseUp(e) {
+                if (!this.isDrawing) return;
+
+                const pos = this.getMousePos(e);
+                this.isDrawing = false;
+                this.isDragging = false;
+                this.hideSnapIndicator();
+
+                let endX = pos.x;
+                let endY = pos.y;
+
+                // Apply shift constraints
+                if (this.shiftPressed && this.currentTool !== 'select' && this.currentTool !== 'pen') {
+                    if (this.currentTool === 'rectangle' || this.currentTool === 'ellipse') {
+                        const size = Math.min(Math.abs(endX - this.startX), Math.abs(endY - this.startY));
+                        endX = this.startX + (endX > this.startX ? size : -size);
+                        endY = this.startY + (endY > this.startY ? size : -size);
+                    } else if (this.currentTool === 'line') {
+                        const angle = Math.atan2(endY - this.startY, endX - this.startX);
+                        const snappedAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+                        const distance = Math.sqrt((endX - this.startX) ** 2 + (endY - this.startY) ** 2);
+                        endX = this.startX + Math.cos(snappedAngle) * distance;
+                        endY = this.startY + Math.sin(snappedAngle) * distance;
+                    }
+                }
+
+                if (this.currentTool !== 'select' && this.currentTool !== 'pen') {
+                    this.createElement(this.startX, this.startY, endX, endY);
+                } else if (this.currentTool === 'pen' && this.currentPath.length > 0) {
+                    this.elements.push({
+                        type: 'pen',
+                        path: [...this.currentPath],
+                        color: document.getElementById('colorPicker').value,
+                        strokeWidth: parseInt(document.getElementById('strokeWidth').value)
+                    });
+                    this.currentPath = [];
+                }
+
+                this.saveState();
+                this.redraw();
+            }
+
+            handleWheel(e) {
+                e.preventDefault();
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                const wheel = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+                const newZoom = Math.max(0.1, Math.min(5, this.zoom * wheel));
+
+                this.panX = mouseX - (mouseX - this.panX) * (newZoom / this.zoom);
+                this.panY = mouseY - (mouseY - this.panY) * (newZoom / this.zoom);
+                
+                this.zoom = newZoom;
+                this.updateZoomDisplay();
+                this.redraw();
+            }
+
+            handleKeyDown(e) {
+                this.shiftPressed = e.shiftKey;
+                this.ctrlPressed = e.ctrlKey || e.metaKey;
+
+                // Tool shortcuts
+                if (!this.ctrlPressed) {
+                    const toolMap = {
+                        'v': 'select', 'p': 'pen', 'r': 'rectangle', 'o': 'ellipse',
+                        't': 'triangle', 'd': 'diamond', 'h': 'hexagon', 's': 'star',
+                        'l': 'line', 'a': 'arrow', 'c': 'curve'
+                    };
+                    
+                    if (toolMap[e.key.toLowerCase()]) {
+                        this.currentTool = toolMap[e.key.toLowerCase()];
+                        document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
+                        document.querySelector(`[data-tool="${this.currentTool}"]`).classList.add('active');
+                        this.updateStatus(`Switched to ${this.currentTool} tool`);
+                        return;
+                    }
+                }
+
+                if (this.ctrlPressed) {
+                    if (e.key === 'z' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.undo();
+                    } else if (e.key === 'z' && e.shiftKey || e.key === 'y') {
+                        e.preventDefault();
+                        this.redo();
+                    } else if (e.key === 'd') {
+                        e.preventDefault();
+                        this.duplicate();
+                    }
+                }
+
+                if (e.key === 'Delete' && this.selectedElement) {
+                    this.elements = this.elements.filter(el => el !== this.selectedElement);
+                    this.selectedElement = null;
+                    this.saveState();
+                    this.redraw();
+                    this.updateStatus('Element deleted');
+                }
+            }
+
+            handleKeyUp(e) {
+                this.shiftPressed = e.shiftKey;
+                this.ctrlPressed = e.ctrlKey || e.metaKey;
+            }
+
+            createElement(x1, y1, x2, y2) {
+                const element = {
+                    type: this.currentTool,
+                    x: Math.min(x1, x2),
+                    y: Math.min(y1, y2),
+                    width: Math.abs(x2 - x1),
+                    height: Math.abs(y2 - y1),
+                    x1, y1, x2, y2,
+                    color: document.getElementById('colorPicker').value,
+                    strokeWidth: parseInt(document.getElementById('strokeWidth').value),
+                    id: Date.now() + Math.random()
+                };
+
+                this.elements.push(element);
+                this.updateStatus(`Created ${this.currentTool}`);
+            }
+
+            drawPreview(x1, y1, x2, y2) {
+                this.ctx.save();
+                this.ctx.strokeStyle = document.getElementById('colorPicker').value;
+                this.ctx.lineWidth = parseInt(document.getElementById('strokeWidth').value);
+                this.ctx.setLineDash([5, 5]);
+                this.ctx.globalAlpha = 0.7;
+
+                switch (this.currentTool) {
+                    case 'rectangle':
+                        this.ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                        break;
+                    case 'ellipse':
+                        this.drawEllipse(x1, y1, x2, y2);
+                        break;
+                    case 'triangle':
+                        this.drawTriangle(x1, y1, x2, y2);
+                        break;
+                    case 'diamond':
+                        this.drawDiamond(x1, y1, x2, y2);
+                        break;
+                    case 'hexagon':
+                        this.drawHexagon(x1, y1, x2, y2);
+                        break;
+                    case 'star':
+                        this.drawStar(x1, y1, x2, y2);
+                        break;
+                    case 'line':
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(x1, y1);
+                        this.ctx.lineTo(x2, y2);
+                        this.ctx.stroke();
+                        break;
+                    case 'arrow':
+                        this.drawArrow(x1, y1, x2, y2);
+                        break;
+                    case 'curve':
+                        this.drawCurve(x1, y1, x2, y2);
+                        break;
+                }
+
+                this.ctx.restore();
+            }
+
+            drawPath(path) {
+                if (path.length < 2) return;
+
+                this.ctx.save();
+                this.ctx.strokeStyle = document.getElementById('colorPicker').value;
+                this.ctx.lineWidth = parseInt(document.getElementById('strokeWidth').value);
+                this.ctx.setLineDash([]);
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(path[0].x, path[0].y);
+                for (let i = 1; i < path.length; i++) {
+                    this.ctx.lineTo(path[i].x, path[i].y);
+                }
+                this.ctx.stroke();
+                this.ctx.restore();
+            }
+
+            drawElement(element) {
+                this.ctx.save();
+                this.ctx.strokeStyle = element.color;
+                this.ctx.lineWidth = element.strokeWidth;
+                this.ctx.setLineDash([]);
+
+                switch (element.type) {
+                    case 'rectangle':
+                        this.ctx.strokeRect(element.x, element.y, element.width, element.height);
+                        break;
+                    case 'ellipse':
+                        this.drawEllipse(element.x1, element.y1, element.x2, element.y2);
+                        break;
+                    case 'triangle':
+                        this.drawTriangle(element.x1, element.y1, element.x2, element.y2);
+                        break;
+                    case 'diamond':
+                        this.drawDiamond(element.x1, element.y1, element.x2, element.y2);
+                        break;
+                    case 'hexagon':
+                        this.drawHexagon(element.x1, element.y1, element.x2, element.y2);
+                        break;
+                    case 'star':
+                        this.drawStar(element.x1, element.y1, element.x2, element.y2);
+                        break;
+                    case 'line':
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(element.x1, element.y1);
+                        this.ctx.lineTo(element.x2, element.y2);
+                        this.ctx.stroke();
+                        break;
+                    case 'arrow':
+                        this.drawArrow(element.x1, element.y1, element.x2, element.y2);
+                        break;
+                    case 'curve':
+                        this.drawCurve(element.x1, element.y1, element.x2, element.y2);
+                        break;
+                    case 'pen':
+                        this.drawPath(element.path);
+                        break;
+                }
+
+                this.ctx.restore();
+            }
+
+            drawEllipse(x1, y1, x2, y2) {
+                const centerX = (x1 + x2) / 2;
+                const centerY = (y1 + y2) / 2;
+                const radiusX = Math.abs(x2 - x1) / 2;
+                const radiusY = Math.abs(y2 - y1) / 2;
+
+                this.ctx.beginPath();
+                this.ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+                this.ctx.stroke();
+            }
+
+            drawTriangle(x1, y1, x2, y2) {
+                const centerX = (x1 + x2) / 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(centerX, y1);
+                this.ctx.lineTo(x1, y2);
+                this.ctx.lineTo(x2, y2);
+                this.ctx.closePath();
+                this.ctx.stroke();
+            }
+
+            drawDiamond(x1, y1, x2, y2) {
+                const centerX = (x1 + x2) / 2;
+                const centerY = (y1 + y2) / 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(centerX, y1);
+                this.ctx.lineTo(x2, centerY);
+                this.ctx.lineTo(centerX, y2);
+                this.ctx.lineTo(x1, centerY);
+                this.ctx.closePath();
+                this.ctx.stroke();
+            }
+
+            drawHexagon(x1, y1, x2, y2) {
+                const centerX = (x1 + x2) / 2;
+                const centerY = (y1 + y2) / 2;
+                const radius = Math.min(Math.abs(x2 - x1), Math.abs(y2 - y1)) / 2;
+                
+                this.ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const angle = (Math.PI / 3) * i;
+                    const x = centerX + radius * Math.cos(angle);
+                    const y = centerY + radius * Math.sin(angle);
+                    if (i === 0) this.ctx.moveTo(x, y);
+                    else this.ctx.lineTo(x, y);
+                }
+                this.ctx.closePath();
+                this.ctx.stroke();
+            }
+
+            drawStar(x1, y1, x2, y2) {
+                const centerX = (x1 + x2) / 2;
+                const centerY = (y1 + y2) / 2;
+                const outerRadius = Math.min(Math.abs(x2 - x1), Math.abs(y2 - y1)) / 2;
+                const innerRadius = outerRadius * 0.4;
+                
+                this.ctx.beginPath();
+                for (let i = 0; i < 10; i++) {
+                    const angle = (Math.PI / 5) * i;
+                    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                    const x = centerX + radius * Math.cos(angle - Math.PI / 2);
+                    const y = centerY + radius * Math.sin(angle - Math.PI / 2);
+                    if (i === 0) this.ctx.moveTo(x, y);
+                    else this.ctx.lineTo(x, y);
+                }
+                this.ctx.closePath();
+                this.ctx.stroke();
+            }
+
+            drawArrow(x1, y1, x2, y2) {
+                const headlen = 20;
+                const angle = Math.atan2(y2 - y1, x2 - x1);
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(x1, y1);
+                this.ctx.lineTo(x2, y2);
+                this.ctx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
+                this.ctx.moveTo(x2, y2);
+                this.ctx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
+                this.ctx.stroke();
+            }
+
+            drawCurve(x1, y1, x2, y2) {
+                const controlX = (x1 + x2) / 2 + (y2 - y1) * 0.3;
+                const controlY = (y1 + y2) / 2 - (x2 - x1) * 0.3;
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(x1, y1);
+                this.ctx.quadraticCurveTo(controlX, controlY, x2, y2);
+                this.ctx.stroke();
+            }
+
+            getElementAt(x, y) {
+                for (let i = this.elements.length - 1; i >= 0; i--) {
+                    const element = this.elements[i];
+                    if (this.isPointInElement(x, y, element)) {
+                        return element;
+                    }
+                }
+                return null;
+            }
+
+            isPointInElement(x, y, element) {
+                if (element.type === 'pen') {
+                    return element.path.some(point => 
+                        Math.abs(point.x - x) < 15 && Math.abs(point.y - y) < 15
+                    );
+                }
+                
+                const margin = 10;
+                return x >= element.x - margin && x <= element.x + element.width + margin &&
+                       y >= element.y - margin && y <= element.y + element.height + margin;
+            }
+
+            getSnapPosition(x, y) {
+                if (!this.snapEnabled) return { x, y, snapped: false };
+
+                const snapPoints = [];
+                
+                // Collect snap points from other elements
+                this.elements.forEach(element => {
+                    if (element === this.selectedElement) return;
+                    
+                    if (element.type === 'pen') {
+                        element.path.forEach(point => {
+                            snapPoints.push({ x: point.x, y: point.y, type: 'point' });
+                        });
+                    } else {
+                        // Corner points
+                        snapPoints.push({ x: element.x, y: element.y, type: 'corner' });
+                        snapPoints.push({ x: element.x + element.width, y: element.y, type: 'corner' });
+                        snapPoints.push({ x: element.x, y: element.y + element.height, type: 'corner' });
+                        snapPoints.push({ x: element.x + element.width, y: element.y + element.height, type: 'corner' });
+                        
+                        // Center points
+                        snapPoints.push({ x: element.x + element.width / 2, y: element.y + element.height / 2, type: 'center' });
+                        
+                        // Edge midpoints
+                        snapPoints.push({ x: element.x + element.width / 2, y: element.y, type: 'edge' });
+                        snapPoints.push({ x: element.x + element.width / 2, y: element.y + element.height, type: 'edge' });
+                        snapPoints.push({ x: element.x, y: element.y + element.height / 2, type: 'edge' });
+                        snapPoints.push({ x: element.x + element.width, y: element.y + element.height / 2, type: 'edge' });
+                    }
+                });
+
+                // Add grid snap points
+                const gridSize = 20;
+                const gridX = Math.round(x / gridSize) * gridSize;
+                const gridY = Math.round(y / gridSize) * gridSize;
+                snapPoints.push({ x: gridX, y: gridY, type: 'grid' });
+
+                // Find closest snap point
+                let closestSnap = null;
+                let minDistance = this.snapThreshold;
+
+                snapPoints.forEach(point => {
+                    const distance = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestSnap = point;
+                    }
+                });
+
+                if (closestSnap) {
+                    return { x: closestSnap.x, y: closestSnap.y, snapped: true, type: closestSnap.type };
+                }
+
+                return { x, y, snapped: false };
+            }
+
+            showSnapIndicator(type) {
+                const indicator = document.getElementById('snapIndicator');
+                indicator.textContent = `Snap to ${type}`;
+                indicator.classList.add('show');
+                clearTimeout(this.snapTimeout);
+                this.snapTimeout = setTimeout(() => {
+                    indicator.classList.remove('show');
+                }, 1000);
+            }
+
+            hideSnapIndicator() {
+                document.getElementById('snapIndicator').classList.remove('show');
+            }
+
+            redraw() {
+                this.ctx.save();
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Apply zoom and pan
+                this.ctx.translate(this.panX, this.panY);
+                this.ctx.scale(this.zoom, this.zoom);
+
+                // Draw grid
+                this.drawGrid();
+
+                // Draw elements
+                this.elements.forEach(element => {
+                    this.drawElement(element);
+                });
+
+                // Draw selection
+                if (this.selectedElement) {
+                    this.drawSelection(this.selectedElement);
+                }
+
+                // Draw current path if drawing
+                if (this.currentPath.length > 0) {
+                    this.drawPath(this.currentPath);
+                }
+
+                this.ctx.restore();
+            }
+
+            drawGrid() {
+                const gridSize = 20;
+                this.ctx.save();
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                this.ctx.lineWidth = 1;
+
+                const startX = Math.floor(-this.panX / this.zoom / gridSize) * gridSize;
+                const startY = Math.floor(-this.panY / this.zoom / gridSize) * gridSize;
+                const endX = startX + (this.canvas.width / this.zoom) + gridSize;
+                const endY = startY + (this.canvas.height / this.zoom) + gridSize;
+
+                for (let x = startX; x < endX; x += gridSize) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x, startY);
+                    this.ctx.lineTo(x, endY);
+                    this.ctx.stroke();
+                }
+
+                for (let y = startY; y < endY; y += gridSize) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(startX, y);
+                    this.ctx.lineTo(endX, y);
+                    this.ctx.stroke();
+                }
+
+                this.ctx.restore();
+            }
+
+            drawSelection(element) {
+                this.ctx.save();
+                this.ctx.strokeStyle = '#6366f1';
+                this.ctx.lineWidth = 2;
+                this.ctx.setLineDash([5, 5]);
+                this.ctx.globalAlpha = 0.8;
+                
+                if (element.type === 'pen') {
+                    const bounds = this.getPathBounds(element.path);
+                    this.ctx.strokeRect(bounds.x - 5, bounds.y - 5, bounds.width + 10, bounds.height + 10);
+                } else {
+                    this.ctx.strokeRect(element.x - 5, element.y - 5, element.width + 10, element.height + 10);
+                    
+                    // Draw resize handles
+                    this.ctx.fillStyle = '#6366f1';
+                    this.ctx.setLineDash([]);
+                    const handleSize = 6;
+                    const handles = [
+                        { x: element.x - handleSize/2, y: element.y - handleSize/2 },
+                        { x: element.x + element.width - handleSize/2, y: element.y - handleSize/2 },
+                        { x: element.x - handleSize/2, y: element.y + element.height - handleSize/2 },
+                        { x: element.x + element.width - handleSize/2, y: element.y + element.height - handleSize/2 }
+                    ];
+                    
+                    handles.forEach(handle => {
+                        this.ctx.fillRect(handle.x, handle.y, handleSize, handleSize);
+                    });
+                }
+                
+                this.ctx.restore();
+            }
+
+            getPathBounds(path) {
+                if (path.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
+                
+                let minX = path[0].x, maxX = path[0].x;
+                let minY = path[0].y, maxY = path[0].y;
+                
+                path.forEach(point => {
+                    minX = Math.min(minX, point.x);
+                    maxX = Math.max(maxX, point.x);
+                    minY = Math.min(minY, point.y);
+                    maxY = Math.max(maxY, point.y);
+                });
+                
+                return {
+                    x: minX,
+                    y: minY,
+                    width: maxX - minX,
+                    height: maxY - minY
+                };
+            }
+
+            saveState() {
+                this.historyIndex++;
+                this.history = this.history.slice(0, this.historyIndex);
+                this.history.push(JSON.parse(JSON.stringify(this.elements)));
+            }
+
+            undo() {
+                if (this.historyIndex > 0) {
+                    this.historyIndex--;
+                    this.elements = JSON.parse(JSON.stringify(this.history[this.historyIndex]));
+                    this.selectedElement = null;
+                    this.redraw();
+                    this.updateStatus('Undone');
+                }
+            }
+
+            redo() {
+                if (this.historyIndex < this.history.length - 1) {
+                    this.historyIndex++;
+                    this.elements = JSON.parse(JSON.stringify(this.history[this.historyIndex]));
+                    this.selectedElement = null;
+                    this.redraw();
+                    this.updateStatus('Redone');
+                }
+            }
+
+            duplicate() {
+                if (this.selectedElement) {
+                    const newElement = JSON.parse(JSON.stringify(this.selectedElement));
+                    newElement.id = Date.now() + Math.random();
+                    newElement.x += 20;
+                    newElement.y += 20;
+                    newElement.x1 += 20;
+                    newElement.y1 += 20;
+                    newElement.x2 += 20;
+                    newElement.y2 += 20;
+                    
+                    if (newElement.path) {
+                        newElement.path = newElement.path.map(point => ({
+                            x: point.x + 20,
+                            y: point.y + 20
+                        }));
+                    }
+                    
+                    this.elements.push(newElement);
+                    this.selectedElement = newElement;
+                    this.saveState();
+                    this.redraw();
+                    this.updateStatus('Element duplicated');
+                }
+            }
+
+            clear() {
+                this.elements = [];
+                this.selectedElement = null;
+                this.saveState();
+                this.redraw();
+                this.updateStatus('Canvas cleared');
+            }
+
+            zoomIn() {
+                this.zoom = Math.min(this.zoom * 1.2, 5);
+                this.updateZoomDisplay();
+                this.redraw();
+            }
+
+            zoomOut() {
+                this.zoom = Math.max(this.zoom / 1.2, 0.2);
+                this.updateZoomDisplay();
+                this.redraw();
+            }
+
+            resetZoom() {
+                this.zoom = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.updateZoomDisplay();
+                this.redraw();
+                this.updateStatus('View reset');
+            }
+
+            updateZoomDisplay() {
+                document.getElementById('zoomLevel').textContent = Math.round(this.zoom * 100) + '%';
+            }
+
+            updateStatus(message) {
+                document.getElementById('statusBar').textContent = message;
+            }
+
+            // AI Features
+            startAIFeatures() {
+                this.updateStatus('AI Assistant ready - Create amazing designs!');
+                
+                // Simulate AI readiness
+                setTimeout(() => {
+                    this.updateStatus('Smart features enabled');
+                }, 2000);
+            }
+
+            autoAlign() {
+                if (this.elements.length < 2) {
+                    this.updateStatus('Need at least 2 elements to align');
+                    return;
+                }
+
+                // Align elements to the leftmost position
+                const minX = Math.min(...this.elements.map(el => el.x));
+                this.elements.forEach(el => {
+                    if (el.type !== 'pen') {
+                        el.x = minX;
+                        el.x1 = minX;
+                        el.x2 = minX + el.width;
+                    }
+                });
+
+                this.saveState();
+                this.redraw();
+                this.updateStatus('Elements auto-aligned');
+            }
+
+            toggleSmartSnap() {
+                this.snapEnabled = !this.snapEnabled;
+                const btn = document.getElementById('smartSnap');
+                btn.style.background = this.snapEnabled ? 'var(--primary)' : 'var(--glass)';
+                btn.style.color = this.snapEnabled ? 'var(--text-primary)' : 'var(--text-secondary)';
+                this.updateStatus(`Smart snap ${this.snapEnabled ? 'enabled' : 'disabled'}`);
+            }
+
+            beautifyElements() {
+                // Round positions to grid and improve stroke widths
+                this.elements.forEach(element => {
+                    if (element.type !== 'pen') {
+                        element.x = Math.round(element.x / 10) * 10;
+                        element.y = Math.round(element.y / 10) * 10;
+                        element.x1 = Math.round(element.x1 / 10) * 10;
+                        element.y1 = Math.round(element.y1 / 10) * 10;
+                        element.x2 = Math.round(element.x2 / 10) * 10;
+                        element.y2 = Math.round(element.y2 / 10) * 10;
+                        element.width = Math.round(element.width / 10) * 10;
+                        element.height = Math.round(element.height / 10) * 10;
+                    }
+                    
+                    // Optimize stroke width
+                    if (element.strokeWidth > 6) element.strokeWidth = Math.min(element.strokeWidth, 8);
+                    if (element.strokeWidth < 2) element.strokeWidth = 2;
+                });
+
+                this.saveState();
+                this.redraw();
+                this.updateStatus('Elements beautified');
+            }
+
+            autoColor() {
+                const colors = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#ef4444'];
+                this.elements.forEach((element, index) => {
+                    element.color = colors[index % colors.length];
+                });
+
+                this.saveState();
+                this.redraw();
+                this.updateStatus('Auto-colored with harmonious palette');
+            }
+
+            suggestLayout() {
+                if (this.elements.length === 0) {
+                    this.updateStatus('No elements to arrange');
+                    return;
+                }
+
+                // Arrange elements in a grid pattern
+                const cols = Math.ceil(Math.sqrt(this.elements.length));
+                const spacing = 100;
+                const startX = 100;
+                const startY = 100;
+
+                this.elements.forEach((element, index) => {
+                    const col = index % cols;
+                    const row = Math.floor(index / cols);
+                    
+                    if (element.type !== 'pen') {
+                        element.x = startX + col * spacing;
+                        element.y = startY + row * spacing;
+                        element.x1 = element.x;
+                        element.y1 = element.y;
+                        element.x2 = element.x + element.width;
+                        element.y2 = element.y + element.height;
+                    }
+                });
+
+                this.saveState();
+                this.redraw();
+                this.updateStatus('Layout suggested and applied');
+            }
+        }
+
+        // Initialize the drawing tool when the page loads
+        window.addEventListener('load', () => {
+            new AIDrawingTool();
+        });
+    </script>
+</body>
+</html>
